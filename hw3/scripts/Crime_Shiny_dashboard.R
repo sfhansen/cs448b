@@ -7,13 +7,15 @@ library(geosphere)
 library(stringr)
 library(shinydashboard)
 
-df = read_tsv("~/Desktop/Spring_2016/cs_448B/hw3/data//scpd_incidents.tsv")
+df = read_tsv(file = "hw3/data/scpd_incidents_cleaned.tsv")
 ID = seq(1, nrow(df), 1)
 df = bind_cols(df, as.data.frame(ID))
 
-
 MILE_TO_METER = 1609.34
 METER_TO_MILE = 0.000621371
+
+
+# Creates UI --------------------------------------------------------------
 
 ui <- dashboardPage(skin = "black",
   dashboardHeader(title = "San Francisco Crime"),
@@ -56,6 +58,9 @@ ui <- dashboardPage(skin = "black",
   )
 )
 
+
+# Creates Server  ---------------------------------------------------------
+
 server <- function(input, output) {
   v = reactiveValues(
     click1 = NULL,  # Represents the first mouse click, if any
@@ -64,7 +69,9 @@ server <- function(input, output) {
     click2 = NULL    # After two clicks, this stores the range of x
   )
   
-  ## Make your initial map
+
+# Initializes Map ---------------------------------------------------------
+
   output$map = renderLeaflet({
     leaflet() %>%
       setView(lng = -122.4237, lat = 37.7734, zoom = 12) %>%
@@ -83,7 +90,8 @@ server <- function(input, output) {
   
   output$radius = renderPrint({ input$radius })
   
-  ## Observe mouse clicks and add circles
+# Observe mouse clicks and add circles ------------------------------------
+  
   observeEvent(input$map_click, {
     
     # Resets map if it already has 2 circles
@@ -159,6 +167,8 @@ server <- function(input, output) {
       df_dist = bind_cols(df_dist, as.data.frame(dup))
       df_dist = filter(df_dist, TRUE == dup)
 
+# Applies input selection filters  ----------------------------------------
+      
       # Applies crime category filter 
       if(input$categoryInput != "ALL") {
         pos_all <- df_dist %>%
@@ -179,6 +189,8 @@ server <- function(input, output) {
       pos_all <- pos_all %>% 
         filter(date >= as.POSIXct(input$dateRange[1]), 
                                   date <= as.POSIXct(input$dateRange[2]))
+
+# Adds markers to map -----------------------------------------------------
       
       leafletProxy('map') %>% 
         clearMarkers()
@@ -199,5 +211,10 @@ server <- function(input, output) {
     }
   })
 }
+
+
+
+
+
 
 shinyApp(ui = ui, server = server)
