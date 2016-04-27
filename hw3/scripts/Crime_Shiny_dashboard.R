@@ -58,7 +58,6 @@ ui <- dashboardPage(skin = "black",
   )
 )
 
-
 # Creates Server  ---------------------------------------------------------
 
 server <- function(input, output) {
@@ -112,8 +111,7 @@ server <- function(input, output) {
       click1 =  v$click1
       clat = click1$lat
       clng = click1$lng
-      # address = revgeocode(c(clng,clat))
-      
+
       # Try to make this run faster 
       df_dist1 = df
       pos = select(df, longitude, latitude)
@@ -122,11 +120,7 @@ server <- function(input, output) {
       df_dist1 = bind_cols(df_dist1, as.data.frame(dist))
       df_dist1 = rename(df_dist1, dist = V1)
       df_dist1 = filter(df_dist1, dist <= input$radius*MILE_TO_METER)
-      pos_filt1 = select(df_dist1, latitude, longitude)
       v$df_dist1 = df_dist1
-      
-      leafletProxy('map') %>% 
-        clearMarkers()
       
       ## Add the circle to the map proxy
       ## so you dont need to re-render the whole thing
@@ -137,7 +131,6 @@ server <- function(input, output) {
                    weight = 1, radius = input$radius*MILE_TO_METER, 
                    color = 'black', fillColor = 'gray',
                    popup = FALSE, fillOpacity = 0.5, opacity = 1) 
-      # %>% addMarkers(data = pos_filt1) 
       
       # Gets 2nd map click
     } else if(is.null(v$click2)) {
@@ -145,13 +138,15 @@ server <- function(input, output) {
       click2 = v$click2
       clat = click2$lat
       clng = click2$lng
-      # address = revgeocode(c(clng,clat))
-      
+
       ##Now find the overlap in the circles
-      click1 = v$click1
+      # click1 = v$click1
       click1_radius = v$click1_radius
       
+      
       df_dist1 = v$df_dist1
+      # View(df_dist1)
+      
       df_dist2 = df      
       pos = select(df, longitude, latitude)
       pos1 = c(clng, clat)
@@ -159,8 +154,7 @@ server <- function(input, output) {
       df_dist2 = bind_cols(df_dist2, as.data.frame(dist))
       df_dist2 = rename(df_dist2, dist = V1)
       df_dist2 = filter(df_dist2, dist <= input$radius*MILE_TO_METER)
-      pos_filt2 = select(df_dist2, latitude, longitude)
-      
+
       df_dist = bind_rows(df_dist1, df_dist2)
       df_dist = select(df_dist, -dist)
       dup = duplicated(df_dist)
@@ -211,10 +205,5 @@ server <- function(input, output) {
     }
   })
 }
-
-
-
-
-
 
 shinyApp(ui = ui, server = server)
