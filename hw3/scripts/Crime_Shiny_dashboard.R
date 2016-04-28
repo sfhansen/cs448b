@@ -68,7 +68,6 @@ server <- function(input, output) {
     click2 = NULL    # After two clicks, this stores the range of x
   )
   
-
 # Initializes Map ---------------------------------------------------------
 
   output$map = renderLeaflet({
@@ -147,10 +146,13 @@ server <- function(input, output) {
       click1 =  v$click1
       clat1 = click1$lat
       clng1 = click1$lng
-      print(clat1)
-      print(clng1)
       clat2 = click2$lat
       clng2 = click2$lng
+      
+      print(clat1)
+      print(clng1)
+      print(clat2)
+      print(clng2)
 
       ##Now find the overlap in the circles
       # click1 = v$click1
@@ -211,7 +213,7 @@ server <- function(input, output) {
       ## I also give the circles a group, "circles", so you can
       ## then do something like hide all the circles with hideGroup('circles')
       leafletProxy('map') %>% # use the proxy to save computation
-        addCircles(lng = clng, lat = clat, group = 'circles',
+        addCircles(lng = clng2, lat = clat2, group = 'circles',
                    weight=1, radius = input$radius*MILE_TO_METER, 
                    color = 'black', fillColor = 'gray',
                    popup = FALSE, fillOpacity = 0.5, opacity = 1) %>% 
