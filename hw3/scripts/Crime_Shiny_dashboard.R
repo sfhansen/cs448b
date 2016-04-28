@@ -109,25 +109,27 @@ server <- function(input, output) {
       v$click1 = input$map_click
       v$click1_radius = input$radius
       click1 =  v$click1
-      clat = click1$lat
-      clng = click1$lng
+      # clat = click1$lat
+      # clng = click1$lng
+      clat1 = click1$lat
+      clng1 = click1$lng
 
       # Try to make this run faster 
-      df_dist1 = df
-      pos = select(df, longitude, latitude)
-      pos1 = c(clng, clat)
-      dist = distm(pos, pos1, distHaversine)
-      df_dist1 = bind_cols(df_dist1, as.data.frame(dist))
-      df_dist1 = rename(df_dist1, dist = V1)
-      df_dist1 = filter(df_dist1, dist <= input$radius*MILE_TO_METER)
-      v$df_dist1 = df_dist1
+      # df_dist1 = df
+      # pos = select(df, longitude, latitude)
+      # pos1 = c(clng, clat)
+      # dist = distm(pos, pos1, distHaversine)
+      # df_dist1 = bind_cols(df_dist1, as.data.frame(dist))
+      # df_dist1 = rename(df_dist1, dist = V1)
+      # df_dist1 = filter(df_dist1, dist <= input$radius*MILE_TO_METER)
+      # v$df_dist1 = df_dist1
       
       ## Add the circle to the map proxy
       ## so you dont need to re-render the whole thing
       ## I also give the circles a group, "circles", so you can
       ## then do something like hide all the circles with hideGroup('circles')
       leafletProxy('map') %>% # use the proxy to save computation
-        addCircles(lng = clng, lat = clat, group = 'circles',
+        addCircles(lng = clng1, lat = clat1, group = 'circles',
                    weight = 1, radius = input$radius*MILE_TO_METER, 
                    color = 'black', fillColor = 'gray',
                    popup = FALSE, fillOpacity = 0.5, opacity = 1) 
@@ -136,40 +138,55 @@ server <- function(input, output) {
     } else if(is.null(v$click2)) {
       v$click2 = input$map_click
       click2 = v$click2
-      clat = click2$lat
-      clng = click2$lng
+      # clat = click2$lat
+      # clng = click2$lng
+      
+      # New Code:
+      v$click1 = input$map_click
+      v$click1_radius = input$radius
+      click1 =  v$click1
+      clat1 = click1$lat
+      clng1 = click1$lng
+      print(clat1)
+      print(clng1)
+      clat2 = click2$lat
+      clng2 = click2$lng
 
       ##Now find the overlap in the circles
       # click1 = v$click1
-      click1_radius = v$click1_radius
+      # click1_radius = v$click1_radius
+      
+      pos_all <- df %>% 
+        filter(latitude <= clat1, longitude <= clng1, 
+               latitude <= clat2, longitude <= clng2)
       
       
-      df_dist1 = v$df_dist1
-      # View(df_dist1)
-      
-      df_dist2 = df      
-      pos = select(df, longitude, latitude)
-      pos1 = c(clng, clat)
-      dist = distm(pos, pos1, distHaversine)
-      df_dist2 = bind_cols(df_dist2, as.data.frame(dist))
-      df_dist2 = rename(df_dist2, dist = V1)
-      df_dist2 = filter(df_dist2, dist <= input$radius*MILE_TO_METER)
-
-      df_dist = bind_rows(df_dist1, df_dist2)
-      df_dist = select(df_dist, -dist)
-      dup = duplicated(df_dist)
-      df_dist = bind_cols(df_dist, as.data.frame(dup))
-      df_dist = filter(df_dist, TRUE == dup)
+      # df_dist1 = v$df_dist1
+      # # View(df_dist1)
+      # 
+      # df_dist2 = df      
+      # pos = select(df, longitude, latitude)
+      # pos1 = c(clng, clat)
+      # dist = distm(pos, pos1, distHaversine)
+      # df_dist2 = bind_cols(df_dist2, as.data.frame(dist))
+      # df_dist2 = rename(df_dist2, dist = V1)
+      # df_dist2 = filter(df_dist2, dist <= input$radius*MILE_TO_METER)
+      # 
+      # df_dist = bind_rows(df_dist1, df_dist2)
+      # df_dist = select(df_dist, -dist)
+      # dup = duplicated(df_dist)
+      # df_dist = bind_cols(df_dist, as.data.frame(dup))
+      # df_dist = filter(df_dist, TRUE == dup)
 
 # Applies input selection filters  ----------------------------------------
       
       # Applies crime category filter 
       if(input$categoryInput != "ALL") {
-        pos_all <- df_dist %>%
+        pos_all <- pos_all %>%
           filter(category == input$categoryInput) %>%
           select(latitude, longitude, category, description, date, resolution)
       } else {
-          pos_all <- df_dist %>%
+          pos_all <- pos_all %>%
             select(latitude, longitude, category, description, date, resolution)
       }
       
