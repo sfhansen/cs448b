@@ -13,6 +13,7 @@ df = bind_cols(df, as.data.frame(ID))
 
 MILE_TO_METER = 1609.34
 METER_TO_MILE = 0.000621371
+EARTH_RADIUS = 6378137
 
 
 # Creates UI --------------------------------------------------------------
@@ -101,6 +102,7 @@ server <- function(input, output) {
       v$click1_radius = NULL
       v$df_dist1 = NULL
       v$click2 = NULL
+      v$click2_radius = NULL
     }
     
     # Gets 1st map click
@@ -136,32 +138,46 @@ server <- function(input, output) {
       # Gets 2nd map click
     } else if(is.null(v$click2)) {
       v$click2 = input$map_click
+      v$click2_radius = input$radius
       click2 = v$click2
-      # clat = click2$lat
-      # clng = click2$lng
-      
-      # New Code:
-      v$click1 = input$map_click
-      v$click1_radius = input$radius
       click1 =  v$click1
+     
       clat1 = click1$lat
       clng1 = click1$lng
       clat2 = click2$lat
       clng2 = click2$lng
-      
-      print(clat1)
-      print(clng1)
-      print(clat2)
-      print(clng2)
+
 
       ##Now find the overlap in the circles
       # click1 = v$click1
-      # click1_radius = v$click1_radius
+      click1_radius = v$click1_radius
+      click2_radius = v$click2_radius
+      
+      max_lat <- max(clat1  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi),
+                     clat2  + (click2_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi))
+      
+      min_lat <- min(clat1  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi),
+                     clat2  - (click2_radius * MILE_TO_METER/ EARTH_RADIUS) * (180 / pi))
+      
+      max_lng <- max(clat1  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi),
+                     clat2  + (click2_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi))
+      
+      min_lng <- min(clng1  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi),
+                     clng2  - (click2_radius * MILE_TO_METER/ EARTH_RADIUS) * (180 / pi))
       
       pos_all <- df %>% 
-        filter(latitude <= clat1, longitude <= clng1, 
-               latitude <= clat2, longitude <= clng2)
+
+        # mutate(dist_to_center1 = distHaversine(p1 = c(longitude, latitude), p2 = c(clng2, clat2)))
+        # filter(latitude <= max(clat1,clat2), latitude >= min(clat1,clat2),
+        #        longitude <= max(clng1,clng2), longitude >= min(clng1,clng2))
       
+      filter(latitude <= max_lat, latitude >= min_lat,
+             longitude <= max_lng, longitude >= min_lng)
+      
+      
+      # new_latitude  = latitude  + (click1_radius / r_earth) * (180 / pi)
+      # new_longitude = longitude + (click1_radius / r_earth) * (180 / pi) / cos(latitude * pi/180);
+      # 
       
       # df_dist1 = v$df_dist1
       # # View(df_dist1)
