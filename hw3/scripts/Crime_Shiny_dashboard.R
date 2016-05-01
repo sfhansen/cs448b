@@ -142,9 +142,13 @@ server <- function(input, output) {
       click2 = v$click2
       click1 =  v$click1
       
-      # Find smaller circle, then compute min/max lat/long 
+      # Get click 1 and 2 radii and coordinates 
       click1_radius = v$click1_radius
       click2_radius = v$click2_radius
+      clat1 = click1$lat
+      clng1 = click1$lng
+      clat2 = click2$lat
+      clng2 = click2$lng
       
       # If circle 1 is smaller: compute max/min coordinates from circle 1's center
       if(click1_radius <= click2_radius) {
@@ -152,8 +156,13 @@ server <- function(input, output) {
         min_lat <- clat1  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
         max_lng <- clng1  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
         min_lng <- clng1  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        
         smaller_circle_lat <- clat1
         smaller_circle_lng <- clng1
+        larger_circle_lat <- clat2
+        larger_circle_lng <- clng2
+        smaller_radius <- click1_radius
+        larger_radius <- click2_radius
         
       # If circle 2 is smaller: compute max/min coordinates from circle 2's center
       } else {
@@ -163,55 +172,42 @@ server <- function(input, output) {
         min_lng <- clng2  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
         smaller_circle_lat <- clat2
         smaller_circle_lng <- clng2
+        larger_circle_lat <- clat1
+        larger_circle_lng <- clng1
+        smaller_radius <- click2_radius
+        larger_radius <- click1_radius
       }
-      
-      
-      
-      
+  
+      # Filter data frame to points within the min/max lat/long
+      crimes_in_range <- df %>%
+        filter(latitude <= max_lat, latitude >= min_lat,
+               longitude <= max_lng, longitude >= min_lng)
       
       # Compute distances of these filtered points to the smaller circle's center
-     
-      clat1 = click1$lat
-      clng1 = click1$lng
-      clat2 = click2$lat
-      clng2 = click2$lng
+      crime_coords <- crimes_in_range %>% 
+        select(longitude, latitude)
+      smaller_circle_center <- c(smaller_circle_lng, smaller_circle_lat)
+      distances_to_smaller_circle_center <- distm(smaller_circle_center, crime_coords, distHaversine)
+      crimes_in_range <- bind_cols(crimes_in_range, as.data.frame(distances_to_smaller_circle_center))
+      crimes_in_range <- crimes_in_range %>%
+        rename(distance_to_smaller_circle_center = V1)
+      
+      # Filter crimes to only those within smaller circle 
+      crimes_in_range <- crimes_in_range %>%
+        filter(distance_to_smaller_circle_center <= smaller_radius * MILE_TO_METER)
 
-
-      ##Now find the overlap in the circles
+      # Compute distances of these points to the larger circle's center
+      crime_coords <- crimes_in_range %>% 
+        select(longitude, latitude)
+      larger_circle_center <- c(larger_circle_lng, larger_circle_lat)
+      distances_to_larger_circle_center <- distm(larger_circle_center, crime_coords, distHaversine)
+      crimes_in_range <- bind_cols(crimes_in_range, as.data.frame(distances_to_larger_circle_center))
+      crimes_in_range <- crimes_in_range %>%
+        rename(distance_to_larger_circle_center = V1)
       
-      
-
-      
-      pos_all <- df %>% 
-
-        # mutate(dist_to_center1 = distHaversine(p1 = c(longitude, latitude), p2 = c(clng2, clat2)))
-        # filter(latitude <= max(clat1,clat2), latitude >= min(clat1,clat2),
-        #        longitude <= max(clng1,clng2), longitude >= min(clng1,clng2))
-      
-      filter(latitude <= max_lat, latitude >= min_lat,
-             longitude <= max_lng, longitude >= min_lng)
-      
-      
-      # new_latitude  = latitude  + (click1_radius / r_earth) * (180 / pi)
-      # new_longitude = longitude + (click1_radius / r_earth) * (180 / pi) / cos(latitude * pi/180);
-      # 
-      
-      # df_dist1 = v$df_dist1
-      # # View(df_dist1)
-      # 
-      # df_dist2 = df      
-      # pos = select(df, longitude, latitude)
-      # pos1 = c(clng, clat)
-      # dist = distm(pos, pos1, distHaversine)
-      # df_dist2 = bind_cols(df_dist2, as.data.frame(dist))
-      # df_dist2 = rename(df_dist2, dist = V1)
-      # df_dist2 = filter(df_dist2, dist <= input$radius*MILE_TO_METER)
-      # 
-      # df_dist = bind_rows(df_dist1, df_dist2)
-      # df_dist = select(df_dist, -dist)
-      # dup = duplicated(df_dist)
-      # df_dist = bind_cols(df_dist, as.data.frame(dup))
-      # df_dist = filter(df_dist, TRUE == dup)
+      # Filter crimes to those within the overlap of both circles
+      crimes_in_range <- crimes_in_range %>%
+        filter(distance_to_larger_circle_center <= larger_radius * MILE_TO_METER)
 
 # Applies input selection filters  ----------------------------------------
       
