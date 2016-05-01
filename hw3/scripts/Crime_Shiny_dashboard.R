@@ -13,7 +13,7 @@ df = bind_cols(df, as.data.frame(ID))
 
 MILE_TO_METER = 1609.34
 METER_TO_MILE = 0.000621371
-EARTH_RADIUS = 6378137
+EARTH_RADIUS = 6371000
 
 
 # Creates UI --------------------------------------------------------------
@@ -141,6 +141,35 @@ server <- function(input, output) {
       v$click2_radius = input$radius
       click2 = v$click2
       click1 =  v$click1
+      
+      # Find smaller circle, then compute min/max lat/long 
+      click1_radius = v$click1_radius
+      click2_radius = v$click2_radius
+      
+      # If circle 1 is smaller: compute max/min coordinates from circle 1's center
+      if(click1_radius <= click2_radius) {
+        max_lat <- clat1  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        min_lat <- clat1  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        max_lng <- clng1  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        min_lng <- clng1  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        smaller_circle_lat <- clat1
+        smaller_circle_lng <- clng1
+        
+      # If circle 2 is smaller: compute max/min coordinates from circle 2's center
+      } else {
+        max_lat <- clat2  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        min_lat <- clat2  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        max_lng <- clng2  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        min_lng <- clng2  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+        smaller_circle_lat <- clat2
+        smaller_circle_lng <- clng2
+      }
+      
+      
+      
+      
+      
+      # Compute distances of these filtered points to the smaller circle's center
      
       clat1 = click1$lat
       clng1 = click1$lng
@@ -149,21 +178,9 @@ server <- function(input, output) {
 
 
       ##Now find the overlap in the circles
-      # click1 = v$click1
-      click1_radius = v$click1_radius
-      click2_radius = v$click2_radius
       
-      max_lat <- max(clat1  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi),
-                     clat2  + (click2_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi))
       
-      min_lat <- min(clat1  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi),
-                     clat2  - (click2_radius * MILE_TO_METER/ EARTH_RADIUS) * (180 / pi))
-      
-      max_lng <- max(clat1  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi),
-                     clat2  + (click2_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi))
-      
-      min_lng <- min(clng1  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi),
-                     clng2  - (click2_radius * MILE_TO_METER/ EARTH_RADIUS) * (180 / pi))
+
       
       pos_all <- df %>% 
 
