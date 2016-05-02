@@ -100,7 +100,6 @@ server <- function(input, output) {
         clearMarkers()
       v$click1 = NULL
       v$click1_radius = NULL
-      v$df_dist1 = NULL
       v$click2 = NULL
       v$click2_radius = NULL
     }
@@ -113,10 +112,11 @@ server <- function(input, output) {
       clat1 = click1$lat
       clng1 = click1$lng
       
-      ## Add the circle to the map proxy
-      ## so you dont need to re-render the whole thing
-      ## I also give the circles a group, "circles", so you can
-      ## then do something like hide all the circles with hideGroup('circles')
+      # Removes previous marker clusters 
+      leafletProxy('map') %>% 
+        clearMarkerClusters()
+      
+      # Adds first circle to map
       leafletProxy('map') %>% # use the proxy to save computation
         addCircles(lng = clng1, lat = clat1, group = 'circles',
                    weight = 1, radius = input$radius * MILE_TO_METER, 
@@ -130,16 +130,13 @@ server <- function(input, output) {
       click2 = v$click2
       click1 =  v$click1
       
-      # Get click 1 and 2 radii and coordinates 
+      # Gets click 1 and 2 radii and coordinates 
       click1_radius = v$click1_radius
       click2_radius = v$click2_radius
       clat1 = click1$lat
       clng1 = click1$lng
       clat2 = click2$lat
       clng2 = click2$lng
-      
-      print(click1_radius)
-      print(click2_radius)
       
       # If circle 1 is smaller: compute max/min coordinates from circle 1's center
       if(click1_radius <= click2_radius) {
@@ -183,7 +180,6 @@ server <- function(input, output) {
         distm(smaller_circle_center, crime_coords, distHaversine) %>% 
         t() %>% 
         as.data.frame()
-      # Code breaking on this line 
       crimes_in_range <- bind_cols(crimes_in_range, as.data.frame(distances_to_smaller_circle_center))
       crimes_in_range <- crimes_in_range %>%
         rename(distance_to_smaller_circle_center = V1)
@@ -196,7 +192,8 @@ server <- function(input, output) {
       crime_coords <- crimes_in_range %>% 
         select(longitude, latitude)
       larger_circle_center <- c(larger_circle_lng, larger_circle_lat)
-      distances_to_larger_circle_center <- distm(larger_circle_center, crime_coords, distHaversine) %>%
+      distances_to_larger_circle_center <- 
+        distm(larger_circle_center, crime_coords, distHaversine) %>%
         t() %>% 
         as.data.frame()
       crimes_in_range <- bind_cols(crimes_in_range, as.data.frame(distances_to_larger_circle_center))
@@ -207,7 +204,6 @@ server <- function(input, output) {
       crimes_in_range <- crimes_in_range %>%
         filter(distance_to_larger_circle_center <= larger_radius * MILE_TO_METER)
     
-
 # Applies input selection filters  ----------------------------------------
       
       # Applies crime category filter 
@@ -234,21 +230,22 @@ server <- function(input, output) {
 # Adds markers to map -----------------------------------------------------
       
       leafletProxy('map') %>% 
-        clearMarkers()
+        clearMarkers() %>%
+        clearMarkerClusters()
       
-      ## Add the circle to the map proxy
-      ## so you dont need to re-render the whole thing
-      ## I also give the circles a group, "circles", so you can
-      ## then do something like hide all the circles with hideGroup('circles')
-      leafletProxy('map') %>% # use the proxy to save computation
+      # Adds second circle to map
+      leafletProxy('map') %>% 
         addCircles(lng = clng2, lat = clat2, group = 'circles',
-                   weight=1, radius = input$radius*MILE_TO_METER, 
+                   weight = 1, radius = input$radius * MILE_TO_METER, 
                    color = 'black', fillColor = 'gray',
                    popup = FALSE, fillOpacity = 0.5, opacity = 1) %>% 
+        
+        # Adds crime markers to map
         addMarkers(data = crimes_in_range, 
                    popup = str_c(crimes_in_range$category, 
-                                 crimes_in_range$description, sep = ": "))
-      # clusterOptions = markerClusterOptions()
+                                 crimes_in_range$description, sep = ": "),
+                   clusterOptions = markerClusterOptions()
+        )
     }
   })
 }
