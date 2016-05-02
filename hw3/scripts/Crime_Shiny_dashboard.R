@@ -65,7 +65,7 @@ server <- function(input, output) {
   v = reactiveValues(
     click1 = NULL,  # Represents the first mouse click, if any
     click1_radius = NULL,
-    df_dist1 = NULL,
+    map_filtered_crimes = NULL,
     click2 = NULL    # After two clicks, this stores the range of x
   )
   
@@ -89,6 +89,57 @@ server <- function(input, output) {
   
   output$radius = renderPrint({ input$radius })
   
+# Updates input selection filters  ----------------------------------------
+
+  # Applies crime category filter 
+  observeEvent(input$categoryInput,  {
+    if(!is.null(v$map_filtered_crimes)) {
+      print("NOT NULL")
+      if(input$categoryInput != "ALL") {
+        selected_crimes <- v$map_filtered_crimes %>%
+          filter(category == input$categoryInput) %>%
+          select(latitude, longitude, category, description, date, resolution)
+      } else {
+        selected_crimes <- v$map_filtered_crimes %>%
+          select(latitude, longitude, category, description, date, resolution)
+      }
+    
+      leafletProxy('map') %>% 
+        clearMarkers() %>%
+        clearMarkerClusters()
+      
+      # Adds crime markers to map
+      leafletProxy('map') %>% 
+      addMarkers(data = selected_crimes, 
+                 popup = str_c(selected_crimes$category, 
+                               selected_crimes$description, sep = ": "),
+                 clusterOptions = markerClusterOptions()
+      )
+    } else{
+      print("NULL")
+    }
+    
+  })
+  
+  # Applies crime resolution filter 
+  observeEvent(input$resolutionInput, {
+    if(!is.null(v$map_filtered_crimes)) {
+      if(input$resolutionInput != "ALL") {
+        selected_crimes <- v$map_filtered_crimes %>% 
+          filter(resolution == input$resolutionInput)
+      } 
+    }
+  })
+  
+  # Applies date range filter
+  observeEvent(input$dateRange, {
+    if(!is.null(v$map_filtered_crimes)) {
+      selected_crimes <- v$map_filtered_crimes %>% 
+        filter(date >= as.POSIXct(input$dateRange[1]), 
+               date <= as.POSIXct(input$dateRange[2]))
+    }
+  })
+    
 # Observe mouse clicks and add circles ------------------------------------
   
   observeEvent(input$map_click, {
@@ -97,7 +148,9 @@ server <- function(input, output) {
     if(!is.null(v$click2)) {
       leafletProxy('map') %>% 
         clearShapes() %>% 
-        clearMarkers()
+        clearMarkers() %>%
+        clearMarkerClusters()
+     
       v$click1 = NULL
       v$click1_radius = NULL
       v$click2 = NULL
@@ -112,12 +165,8 @@ server <- function(input, output) {
       clat1 = click1$lat
       clng1 = click1$lng
       
-      # Removes previous marker clusters 
-      leafletProxy('map') %>% 
-        clearMarkerClusters()
-      
       # Adds first circle to map
-      leafletProxy('map') %>% # use the proxy to save computation
+      leafletProxy('map') %>% 
         addCircles(lng = clng1, lat = clat1, group = 'circles',
                    weight = 1, radius = input$radius * MILE_TO_METER, 
                    color = 'black', fillColor = 'gray',
@@ -203,17 +252,20 @@ server <- function(input, output) {
       # Filter crimes to those within the overlap of both circles
       crimes_in_range <- crimes_in_range %>%
         filter(distance_to_larger_circle_center <= larger_radius * MILE_TO_METER)
-    
-# Applies input selection filters  ----------------------------------------
+     
+      # Store the crimes in the proper lat/long range into a reactive variable
+      v$map_filtered_crimes <- crimes_in_range
       
-      # Applies crime category filter 
+# Applies initial input selection filters -------------------------------------- 
+      
+      # Applies crime category filter
       if(input$categoryInput != "ALL") {
         crimes_in_range <- crimes_in_range %>%
           filter(category == input$categoryInput) %>%
           select(latitude, longitude, category, description, date, resolution)
       } else {
         crimes_in_range <- crimes_in_range %>%
-            select(latitude, longitude, category, description, date, resolution)
+          select(latitude, longitude, category, description, date, resolution)
       }
       
       # Applies crime resolution filter 
@@ -225,8 +277,8 @@ server <- function(input, output) {
       # Applies date range filter
       crimes_in_range <- crimes_in_range %>% 
         filter(date >= as.POSIXct(input$dateRange[1]), 
-                                  date <= as.POSIXct(input$dateRange[2]))
-
+               date <= as.POSIXct(input$dateRange[2]))
+      
 # Adds markers to map -----------------------------------------------------
       
       leafletProxy('map') %>% 
@@ -249,5 +301,8 @@ server <- function(input, output) {
     }
   })
 }
+
+
+
 
 shinyApp(ui = ui, server = server)
