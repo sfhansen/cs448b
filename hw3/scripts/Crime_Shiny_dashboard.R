@@ -110,20 +110,8 @@ server <- function(input, output) {
       v$click1 = input$map_click
       v$click1_radius = input$radius
       click1 =  v$click1
-      # clat = click1$lat
-      # clng = click1$lng
       clat1 = click1$lat
       clng1 = click1$lng
-
-      # Try to make this run faster 
-      # df_dist1 = df
-      # pos = select(df, longitude, latitude)
-      # pos1 = c(clng, clat)
-      # dist = distm(pos, pos1, distHaversine)
-      # df_dist1 = bind_cols(df_dist1, as.data.frame(dist))
-      # df_dist1 = rename(df_dist1, dist = V1)
-      # df_dist1 = filter(df_dist1, dist <= input$radius*MILE_TO_METER)
-      # v$df_dist1 = df_dist1
       
       ## Add the circle to the map proxy
       ## so you dont need to re-render the whole thing
@@ -131,7 +119,7 @@ server <- function(input, output) {
       ## then do something like hide all the circles with hideGroup('circles')
       leafletProxy('map') %>% # use the proxy to save computation
         addCircles(lng = clng1, lat = clat1, group = 'circles',
-                   weight = 1, radius = input$radius*MILE_TO_METER, 
+                   weight = 1, radius = input$radius * MILE_TO_METER, 
                    color = 'black', fillColor = 'gray',
                    popup = FALSE, fillOpacity = 0.5, opacity = 1) 
       
@@ -150,6 +138,9 @@ server <- function(input, output) {
       clat2 = click2$lat
       clng2 = click2$lng
       
+      print(click1_radius)
+      print(click2_radius)
+      
       # If circle 1 is smaller: compute max/min coordinates from circle 1's center
       if(click1_radius <= click2_radius) {
         max_lat <- clat1  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
@@ -163,13 +154,14 @@ server <- function(input, output) {
         larger_circle_lng <- clng2
         smaller_radius <- click1_radius
         larger_radius <- click2_radius
-        
+
       # If circle 2 is smaller: compute max/min coordinates from circle 2's center
       } else {
         max_lat <- clat2  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
         min_lat <- clat2  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
         max_lng <- clng2  + (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
         min_lng <- clng2  - (click1_radius * MILE_TO_METER / EARTH_RADIUS) * (180 / pi)
+
         smaller_circle_lat <- clat2
         smaller_circle_lng <- clng2
         larger_circle_lat <- clat1
@@ -182,12 +174,16 @@ server <- function(input, output) {
       crimes_in_range <- df %>%
         filter(latitude <= max_lat, latitude >= min_lat,
                longitude <= max_lng, longitude >= min_lng)
-      
+     
       # Compute distances of these filtered points to the smaller circle's center
       crime_coords <- crimes_in_range %>% 
         select(longitude, latitude)
       smaller_circle_center <- c(smaller_circle_lng, smaller_circle_lat)
-      distances_to_smaller_circle_center <- distm(smaller_circle_center, crime_coords, distHaversine)
+      distances_to_smaller_circle_center <- 
+        distm(smaller_circle_center, crime_coords, distHaversine) %>% 
+        t() %>% 
+        as.data.frame()
+      # Code breaking on this line 
       crimes_in_range <- bind_cols(crimes_in_range, as.data.frame(distances_to_smaller_circle_center))
       crimes_in_range <- crimes_in_range %>%
         rename(distance_to_smaller_circle_center = V1)
@@ -200,7 +196,9 @@ server <- function(input, output) {
       crime_coords <- crimes_in_range %>% 
         select(longitude, latitude)
       larger_circle_center <- c(larger_circle_lng, larger_circle_lat)
-      distances_to_larger_circle_center <- distm(larger_circle_center, crime_coords, distHaversine)
+      distances_to_larger_circle_center <- distm(larger_circle_center, crime_coords, distHaversine) %>%
+        t() %>% 
+        as.data.frame()
       crimes_in_range <- bind_cols(crimes_in_range, as.data.frame(distances_to_larger_circle_center))
       crimes_in_range <- crimes_in_range %>%
         rename(distance_to_larger_circle_center = V1)
@@ -208,27 +206,28 @@ server <- function(input, output) {
       # Filter crimes to those within the overlap of both circles
       crimes_in_range <- crimes_in_range %>%
         filter(distance_to_larger_circle_center <= larger_radius * MILE_TO_METER)
+    
 
 # Applies input selection filters  ----------------------------------------
       
       # Applies crime category filter 
       if(input$categoryInput != "ALL") {
-        pos_all <- pos_all %>%
+        crimes_in_range <- crimes_in_range %>%
           filter(category == input$categoryInput) %>%
           select(latitude, longitude, category, description, date, resolution)
       } else {
-          pos_all <- pos_all %>%
+        crimes_in_range <- crimes_in_range %>%
             select(latitude, longitude, category, description, date, resolution)
       }
       
       # Applies crime resolution filter 
       if(input$resolutionInput != "ALL") {
-        pos_all <- pos_all %>% 
+        crimes_in_range <- crimes_in_range %>% 
           filter(resolution == input$resolutionInput)
       } 
       
       # Applies date range filter
-      pos_all <- pos_all %>% 
+      crimes_in_range <- crimes_in_range %>% 
         filter(date >= as.POSIXct(input$dateRange[1]), 
                                   date <= as.POSIXct(input$dateRange[2]))
 
@@ -246,9 +245,9 @@ server <- function(input, output) {
                    weight=1, radius = input$radius*MILE_TO_METER, 
                    color = 'black', fillColor = 'gray',
                    popup = FALSE, fillOpacity = 0.5, opacity = 1) %>% 
-        addMarkers(data = pos_all, 
-                   popup = str_c(pos_all$category, 
-                                 pos_all$description, sep = ": "))
+        addMarkers(data = crimes_in_range, 
+                   popup = str_c(crimes_in_range$category, 
+                                 crimes_in_range$description, sep = ": "))
       # clusterOptions = markerClusterOptions()
     }
   })
