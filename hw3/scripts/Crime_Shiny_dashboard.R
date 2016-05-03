@@ -7,14 +7,11 @@ library(geosphere)
 library(stringr)
 library(shinydashboard)
 
-df = read_tsv(file = "../data/scpd_incidents_cleaned.tsv")
-ID = seq(1, nrow(df), 1)
-df = bind_cols(df, as.data.frame(ID))
+df = read_tsv(file = "hw3/data/scpd_incidents_cleaned.tsv")
 
 MILE_TO_METER = 1609.34
 METER_TO_MILE = 0.000621371
 EARTH_RADIUS = 6371000
-
 
 # Creates UI --------------------------------------------------------------
 
@@ -103,7 +100,7 @@ server <- function(input, output) {
                  clusterOptions = markerClusterOptions())
   }
   
-  # Updates filters based on UI input selections
+  # Defines function to update filters based on UI input selections
   update_filters <- function() {
       if(!is.null(v$map_filtered_crimes)) {
         # Applies date range filter 
@@ -127,11 +124,12 @@ server <- function(input, output) {
       }
   }
   
+  # Observes filters based on UI events
   observeEvent(input$dateRange, update_filters())
   observeEvent(input$categoryInput, update_filters())
   observeEvent(input$resolutionInput, update_filters())
   
-# Observe mouse clicks and add circles ------------------------------------
+# Observes mouse clicks and add circles ------------------------------------
   
   observeEvent(input$map_click, {
     
