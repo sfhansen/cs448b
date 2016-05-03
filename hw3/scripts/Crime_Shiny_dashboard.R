@@ -7,7 +7,7 @@ library(geosphere)
 library(stringr)
 library(shinydashboard)
 
-df = read_tsv(file = "hw3/data/scpd_incidents_cleaned.tsv")
+df = read_tsv(file = "../data/scpd_incidents_cleaned.tsv")
 ID = seq(1, nrow(df), 1)
 df = bind_cols(df, as.data.frame(ID))
 
@@ -29,7 +29,7 @@ ui <- dashboardPage(skin = "black",
     dateRangeInput('dateRange',
                    label = 'Date Range',
                    start = "2016-03-02",
-                   end   = "2016-04-30",
+                   end   = "2016-03-31",
                    min = "2016-03-01",
                    max = "2016-04-30"
     ),
@@ -90,56 +90,47 @@ server <- function(input, output) {
   output$radius = renderPrint({ input$radius })
   
 # Updates input selection filters  ----------------------------------------
-
-  # Applies crime category filter 
-  observeEvent(input$categoryInput,  {
-    if(!is.null(v$map_filtered_crimes)) {
-      print("NOT NULL")
-      if(input$categoryInput != "ALL") {
-        selected_crimes <- v$map_filtered_crimes %>%
-          filter(category == input$categoryInput) %>%
-          select(latitude, longitude, category, description, date, resolution)
-      } else {
-        selected_crimes <- v$map_filtered_crimes %>%
-          select(latitude, longitude, category, description, date, resolution)
-      }
-    
-      leafletProxy('map') %>% 
-        clearMarkers() %>%
-        clearMarkerClusters()
-      
-      # Adds crime markers to map
-      leafletProxy('map') %>% 
+  
+  # Defines function to clear and update markers on map
+  draw_new_markers <- function(input_data) {
+    selected_crimes <- input_data
+    leafletProxy('map') %>% 
+      clearMarkers() %>%
+      clearMarkerClusters() %>% 
       addMarkers(data = selected_crimes, 
                  popup = str_c(selected_crimes$category, 
                                selected_crimes$description, sep = ": "),
-                 clusterOptions = markerClusterOptions()
-      )
-    } else{
-      print("NULL")
-    }
-    
-  })
+                 clusterOptions = markerClusterOptions())
+  }
   
-  # Applies crime resolution filter 
-  observeEvent(input$resolutionInput, {
-    if(!is.null(v$map_filtered_crimes)) {
-      if(input$resolutionInput != "ALL") {
+  # Updates filters based on UI input selections
+  update_filters <- function() {
+      if(!is.null(v$map_filtered_crimes)) {
+        # Applies date range filter 
         selected_crimes <- v$map_filtered_crimes %>% 
-          filter(resolution == input$resolutionInput)
-      } 
-    }
-  })
+          filter(date >= as.POSIXct(input$dateRange[1]), 
+                 date <= as.POSIXct(input$dateRange[2]))
+        # Applies crime category filter
+        if(input$categoryInput != "ALL") {
+          selected_crimes <- selected_crimes %>%
+            filter(category == input$categoryInput) %>%
+            select(latitude, longitude, category, description, date, resolution)
+        } 
+        # Applies crime resolution filter
+        if(input$resolutionInput != "ALL") {
+          selected_crimes <- selected_crimes %>% 
+            filter(resolution == input$resolutionInput) %>%
+            select(latitude, longitude, category, description, date, resolution)
+          
+        } 
+        draw_new_markers(selected_crimes)
+      }
+  }
   
-  # Applies date range filter
-  observeEvent(input$dateRange, {
-    if(!is.null(v$map_filtered_crimes)) {
-      selected_crimes <- v$map_filtered_crimes %>% 
-        filter(date >= as.POSIXct(input$dateRange[1]), 
-               date <= as.POSIXct(input$dateRange[2]))
-    }
-  })
-    
+  observeEvent(input$dateRange, update_filters())
+  observeEvent(input$categoryInput, update_filters())
+  observeEvent(input$resolutionInput, update_filters())
+  
 # Observe mouse clicks and add circles ------------------------------------
   
   observeEvent(input$map_click, {
@@ -255,7 +246,7 @@ server <- function(input, output) {
      
       # Store the crimes in the proper lat/long range into a reactive variable
       v$map_filtered_crimes <- crimes_in_range
-      
+
 # Applies initial input selection filters -------------------------------------- 
       
       # Applies crime category filter
@@ -271,15 +262,17 @@ server <- function(input, output) {
       # Applies crime resolution filter 
       if(input$resolutionInput != "ALL") {
         crimes_in_range <- crimes_in_range %>% 
-          filter(resolution == input$resolutionInput)
+          filter(resolution == input$resolutionInput) %>%
+          select(latitude, longitude, category, description, date, resolution)
       } 
       
       # Applies date range filter
       crimes_in_range <- crimes_in_range %>% 
         filter(date >= as.POSIXct(input$dateRange[1]), 
-               date <= as.POSIXct(input$dateRange[2]))
+               date <= as.POSIXct(input$dateRange[2])) %>%
+        select(latitude, longitude, category, description, date, resolution)
       
-# Adds markers to map -----------------------------------------------------
+# Adds initial markers to map --------------------------------------------------
       
       leafletProxy('map') %>% 
         clearMarkers() %>%
@@ -301,8 +294,5 @@ server <- function(input, output) {
     }
   })
 }
-
-
-
 
 shinyApp(ui = ui, server = server)
